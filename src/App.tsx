@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { UserProfile as ProfileType, LogEntry, MealPlanDay, DailyTargets, AchievementBadge, MealCategory, LogUnit } from './types';
 import { FOOD_DATABASE } from './foods';
 import { calculateDailyTargets, calculateAnalysisTotals, generateRecommendations, scanRisks, generateMealPlanner, calculateHealthyScore } from './calculations';
+import { db } from './db';
 
 // Components
 import { DashboardOverview } from './components/DashboardOverview';
@@ -20,108 +21,24 @@ import {
 } from 'lucide-react';
 
 export default function App() {
-  // --- Persistent Local Storage Core State ---
-  const [profile, setProfile] = useState<ProfileType>(() => {
-    const saved = localStorage.getItem('nutriscope_profile');
-    return saved ? JSON.parse(saved) : {
-      name: 'Chomp Nori',
-      age: 26,
-      gender: 'Male',
-      height: 178,
-      weight: 74,
-      goal: 'Maintain',
-      activityLevel: 'Moderate',
-      dietaryPreference: 'Vegetarian',
-      waterGoal: 2500
-    };
+  // --- Persistent IndexedDB Core State ---
+  const [profile, setProfile] = useState<ProfileType>({
+    name: 'Chomp Nori',
+    age: 26,
+    gender: 'Male',
+    height: 178,
+    weight: 74,
+    goal: 'Maintain',
+    activityLevel: 'Moderate',
+    dietaryPreference: 'Vegetarian',
+    waterGoal: 2500
   });
 
-  const [entries, setEntries] = useState<LogEntry[]>(() => {
-    const saved = localStorage.getItem('nutriscope_entries');
-    return saved ? JSON.parse(saved) : [
-      // Seed some realistic data for instant visual presentation
-      {
-        id: 'seed-1',
-        foodId: 'oats',
-        name: 'Rolled Oats (Dry)',
-        timestamp: new Date().toISOString(),
-        meal: 'Breakfast',
-        quantity: 50,
-        unit: 'gram',
-        grams: 50,
-        nutrients: {
-          calories: 195, protein: 8.5, carbohydrates: 33.2, fat: 3.5, fiber: 5.3, sugar: 0.5,
-          sodium: 1, potassium: 215, iron: 2.4, calcium: 27, magnesium: 88, zinc: 2.0,
-          vitaminA: 0, vitaminB1: 0.38, vitaminB2: 0.07, vitaminB3: 0.6, vitaminB6: 0.06, vitaminB12: 0,
-          vitaminC: 0, vitaminD: 0, vitaminE: 0.21, vitaminK: 1.6, folate: 28
-        }
-      },
-      {
-        id: 'seed-2',
-        foodId: 'curd-plain',
-        name: 'Curd / Plain Yogurt',
-        timestamp: new Date().toISOString(),
-        meal: 'Breakfast',
-        quantity: 1,
-        unit: 'serving',
-        grams: 120,
-        nutrients: {
-          calories: 73, protein: 4.2, carbohydrates: 5.6, fat: 4.0, fiber: 0, sugar: 5.6,
-          sodium: 55, potassium: 169, iron: 0.1, calcium: 145, magnesium: 14, zinc: 0.7,
-          vitaminA: 32, vitaminB1: 0.05, vitaminB2: 0.17, vitaminB3: 0.1, vitaminB6: 0.06, vitaminB12: 0.48,
-          vitaminC: 0.6, vitaminD: 0.1, vitaminE: 0.02, vitaminK: 0.2, folate: 8
-        }
-      },
-      {
-        id: 'seed-3',
-        foodId: 'roti-wholewheat',
-        name: 'Roti (Whole Wheat)',
-        timestamp: new Date().toISOString(),
-        meal: 'Lunch',
-        quantity: 2,
-        unit: 'piece',
-        grams: 80,
-        nutrients: {
-          calories: 211, protein: 7.4, carbohydrates: 42.7, fat: 2.5, fiber: 8.1, sugar: 1.0,
-          sodium: 256, potassium: 192, iron: 2.9, calcium: 28, magnesium: 65, zinc: 1.7,
-          vitaminA: 0, vitaminB1: 0.28, vitaminB2: 0.1, vitaminB3: 3.3, vitaminB6: 0.22, vitaminB12: 0,
-          vitaminC: 0, vitaminD: 0, vitaminE: 0.64, vitaminK: 1.7, folate: 33
-        }
-      },
-      {
-        id: 'seed-4',
-        foodId: 'dal-yellow',
-        name: 'Yellow Dal (Cooked)',
-        timestamp: new Date().toISOString(),
-        meal: 'Lunch',
-        quantity: 1,
-        unit: 'bowl',
-        grams: 375,
-        nutrients: {
-          calories: 435, protein: 26.2, carbohydrates: 75.0, fat: 1.5, fiber: 29.2, sugar: 3.0,
-          sodium: 8, potassium: 1350, iron: 7.9, calcium: 71, magnesium: 135, zinc: 3.8,
-          vitaminA: 15, vitaminB1: 0.56, vitaminB2: 0.22, vitaminB3: 3.0, vitaminB6: 0.45, vitaminB12: 0,
-          vitaminC: 5.6, vitaminD: 0, vitaminE: 0.41, vitaminK: 6.4, folate: 450
-        }
-      }
-    ];
-  });
-
-  const [waterCurrent, setWaterCurrent] = useState<number>(() => {
-    const saved = localStorage.getItem('nutriscope_water');
-    return saved ? parseInt(saved) : 1250;
-  });
-
-  const [mealPlan, setMealPlan] = useState<MealPlanDay[]>(() => {
-    const saved = localStorage.getItem('nutriscope_mealplan');
-    return saved ? JSON.parse(saved) : [];
-  });
-
-  // --- Theme State & Settings ---
-  const [isDark, setIsDark] = useState<boolean>(() => {
-    const saved = localStorage.getItem('nutriscope_theme');
-    return saved ? saved === 'dark' : true;
-  });
+  const [entries, setEntries] = useState<LogEntry[]>([]);
+  const [waterCurrent, setWaterCurrent] = useState<number>(0);
+  const [mealPlan, setMealPlan] = useState<MealPlanDay[]>([]);
+  const [isDark, setIsDark] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   const [activeTab, setActiveTab] = useState<'dashboard' | 'logger' | 'recommendations' | 'planner' | 'profile' | 'educational'>('dashboard');
   const [toasts, setToasts] = useState<Array<{ id: string; message: string; type: 'success' | 'error' | 'info' }>>([]);
@@ -139,43 +56,6 @@ export default function App() {
   const risks = scanRisks(totals, targets);
   const healthyScore = calculateHealthyScore(totals, targets, waterCurrent);
 
-  // Sync state to local storage
-  useEffect(() => {
-    localStorage.setItem('nutriscope_profile', JSON.stringify(profile));
-  }, [profile]);
-
-  useEffect(() => {
-    localStorage.setItem('nutriscope_entries', JSON.stringify(entries));
-  }, [entries]);
-
-  useEffect(() => {
-    localStorage.setItem('nutriscope_water', waterCurrent.toString());
-  }, [waterCurrent]);
-
-  useEffect(() => {
-    localStorage.setItem('nutriscope_mealplan', JSON.stringify(mealPlan));
-  }, [mealPlan]);
-
-  useEffect(() => {
-    localStorage.setItem('nutriscope_theme', isDark ? 'dark' : 'light');
-  }, [isDark]);
-
-  // Generate initial meal plan if none exists
-  useEffect(() => {
-    if (mealPlan.length === 0) {
-      const freshPlan = generateMealPlanner(profile, targets);
-      setMealPlan(freshPlan);
-    }
-  }, [profile, targets, mealPlan.length]);
-
-  // Check Confetti eligibility when calories logged crosses 90%
-  useEffect(() => {
-    const ratio = totals.calories / targets.calories;
-    if (ratio >= 0.9 && ratio <= 1.15 && entries.length > 0) {
-      triggerConfetti();
-    }
-  }, [totals.calories, targets.calories]);
-
   // Toast notification helper
   const addToast = (message: string, type: 'success' | 'error' | 'info' = 'success') => {
     const id = Date.now().toString();
@@ -185,7 +65,55 @@ export default function App() {
     }, 3000);
   };
 
-  // Water tracking helpers
+  // --- Asynchronous Database Loading on Mount ---
+  useEffect(() => {
+    async function loadDatabaseData() {
+      try {
+        await db.init();
+        
+        const [loadedProfile, loadedEntries, loadedWater, loadedMealPlan, loadedTheme] = await Promise.all([
+          db.getProfile(),
+          db.getEntries(),
+          db.getWater(),
+          db.getMealPlan(),
+          db.getTheme()
+        ]);
+
+        setProfile(loadedProfile);
+        setEntries(loadedEntries);
+        setWaterCurrent(loadedWater);
+        setIsDark(loadedTheme);
+
+        if (loadedMealPlan && loadedMealPlan.length > 0) {
+          setMealPlan(loadedMealPlan);
+        } else {
+          // If no meal plan stored yet, generate it dynamically based on loaded profile & targets
+          const calculatedTargets = calculateDailyTargets(loadedProfile);
+          const freshPlan = generateMealPlanner(loadedProfile, calculatedTargets);
+          setMealPlan(freshPlan);
+          await db.saveMealPlan(freshPlan);
+        }
+
+        setIsLoading(false);
+      } catch (err) {
+        console.error('Failed to initialize database:', err);
+        addToast('⚠️ DB initialisation error. Using default state.', 'error');
+        setIsLoading(false);
+      }
+    }
+    loadDatabaseData();
+  }, []);
+
+  // Check Confetti eligibility when calories logged crosses 90%
+  useEffect(() => {
+    if (isLoading) return;
+    const ratio = totals.calories / targets.calories;
+    if (ratio >= 0.9 && ratio <= 1.15 && entries.length > 0) {
+      triggerConfetti();
+    }
+  }, [totals.calories, targets.calories, isLoading]);
+
+  // Water tracking helpers with database storage
   const handleAddWater = (amount: number) => {
     setWaterCurrent(prev => {
       const next = prev + amount;
@@ -193,6 +121,10 @@ export default function App() {
         addToast('💧 Brilliant! Daily Hydration Target Fulfilled!', 'success');
         triggerConfetti();
       }
+      db.saveWater(next).catch(err => {
+        console.error('Failed to save water:', err);
+        addToast('⚠️ Database save failure', 'error');
+      });
       return next;
     });
     addToast(`Added +${amount}ml water`, 'info');
@@ -200,28 +132,83 @@ export default function App() {
 
   const handleResetWater = () => {
     setWaterCurrent(0);
+    db.saveWater(0).catch(err => {
+      console.error('Failed to reset water:', err);
+      addToast('⚠️ Database reset failure', 'error');
+    });
     addToast('Water intake counter reset', 'info');
   };
 
-  // Food logger entry helpers
+  // Profile saver with validation & database storage
+  const handleSaveProfile = async (newProfile: ProfileType) => {
+    try {
+      await db.saveProfile(newProfile);
+      setProfile(newProfile);
+      addToast('Profile and targets saved to database', 'success');
+      
+      // Auto-regenerate meal plan when biometrics / goals change
+      const freshPlan = generateMealPlanner(newProfile, calculateDailyTargets(newProfile));
+      setMealPlan(freshPlan);
+      await db.saveMealPlan(freshPlan);
+    } catch (err: any) {
+      console.error('Failed to save profile:', err);
+      addToast(`⚠️ Profile save error: ${err.message || 'Validation failed'}`, 'error');
+    }
+  };
+
+  // Theme toggle with database storage
+  const handleToggleTheme = async () => {
+    const nextTheme = !isDark;
+    setIsDark(nextTheme);
+    try {
+      await db.saveTheme(nextTheme);
+    } catch (err) {
+      console.error('Failed to save theme preference:', err);
+    }
+  };
+
+  // Food logger entry helpers with database storage
   const handleAddEntry = (entry: Omit<LogEntry, 'id' | 'timestamp'>) => {
     const newEntry: LogEntry = {
       ...entry,
       id: Date.now().toString(),
       timestamp: new Date().toISOString()
     };
-    setEntries(prev => [...prev, newEntry]);
+    setEntries(prev => {
+      const next = [...prev, newEntry];
+      db.addEntry(newEntry).catch(err => {
+        console.error('Failed to add food entry:', err);
+        addToast('⚠️ Database entry error', 'error');
+      });
+      return next;
+    });
     addToast(`Successfully logged ${entry.name} to ${entry.meal}`, 'success');
   };
 
   const handleUpdateEntry = (id: string, updated: Partial<LogEntry>) => {
-    setEntries(prev => prev.map(e => e.id === id ? { ...e, ...updated } : e));
+    setEntries(prev => {
+      const existing = prev.find(e => e.id === id);
+      if (!existing) return prev;
+      const nextEntry = { ...existing, ...updated };
+      db.updateEntry(nextEntry).catch(err => {
+        console.error('Failed to update food entry:', err);
+        addToast('⚠️ Database update error', 'error');
+      });
+      return prev.map(e => e.id === id ? nextEntry : e);
+    });
     addToast('Entry updated successfully', 'success');
   };
 
   const handleDeleteEntry = (id: string) => {
     const item = entries.find(e => e.id === id);
-    setEntries(prev => prev.filter(e => e.id !== id));
+    setEntries(prev => {
+      const next = prev.filter(e => e.id !== id);
+      db.deleteEntry(id).catch(err => {
+        console.error('Failed to delete food entry:', err);
+        addToast('⚠️ Database delete error', 'error');
+      });
+      return next;
+    });
     addToast(`Deleted ${item?.name || 'entry'}`, 'info');
   };
 
@@ -233,13 +220,23 @@ export default function App() {
       id: `${Date.now()}-${Math.random()}`,
       timestamp: new Date().toISOString()
     };
-    setEntries(prev => [...prev, duplicated]);
+    setEntries(prev => {
+      const next = [...prev, duplicated];
+      db.addEntry(duplicated).catch(err => {
+        console.error('Failed to duplicate entry:', err);
+        addToast('⚠️ Database copy error', 'error');
+      });
+      return next;
+    });
     addToast(`Duplicated ${original.name}`, 'success');
   };
 
   const handleRegenerateMealPlan = () => {
     const freshPlan = generateMealPlanner(profile, targets);
     setMealPlan(freshPlan);
+    db.saveMealPlan(freshPlan).catch(err => {
+      console.error('Failed to save regenerated meal plan:', err);
+    });
     addToast('Regenerated dynamic 2-day diet agenda', 'success');
   };
 
@@ -321,6 +318,9 @@ export default function App() {
 
         if (parsedEntries.length > 0) {
           setEntries(parsedEntries);
+          db.saveAllEntries(parsedEntries).catch(err => {
+            console.error('Failed to batch save imported entries:', err);
+          });
           addToast(`Imported ${parsedEntries.length} items from CSV!`, 'success');
         } else {
           addToast('No valid food records found in CSV.', 'error');
@@ -395,6 +395,22 @@ export default function App() {
   const handlePrint = () => {
     window.print();
   };
+
+  if (isLoading) {
+    return (
+      <div className={`min-h-screen flex flex-col items-center justify-center font-sans ${isDark ? 'dark bg-theme-bg text-theme-text' : 'bg-background-light text-primary-purple'} transition-all duration-300`}>
+        <div className="flex flex-col items-center gap-4 animate-fade-in">
+          <div className={`p-4 rounded-2xl ${isDark ? 'bg-theme-primary/10 text-theme-secondary' : 'bg-accent-pink/15 text-accent-pink'}`}>
+            <Activity className="w-10 h-10 animate-spin" />
+          </div>
+          <div className="text-center">
+            <h1 className="text-lg font-black tracking-tight">ChompNori BiteBuddy</h1>
+            <p className="text-xs text-slate-400 font-mono tracking-widest uppercase mt-1 animate-pulse">Initializing Database...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={`min-h-screen font-sans ${isDark ? 'dark bg-theme-bg text-theme-text' : 'bg-background-light text-primary-purple'} transition-all duration-300 relative overflow-x-hidden`}>
@@ -533,7 +549,7 @@ export default function App() {
               <div className={`flex items-center justify-between p-2 rounded-xl border ${isDark ? 'bg-theme-bg border-theme-border' : 'bg-light-pink/10 border-light-lavender'}`}>
                 <span className={`text-[10px] font-mono uppercase tracking-widest pl-2 ${isDark ? 'text-theme-text-secondary' : 'text-secondary-purple'}`}>Theme Mode</span>
                 <button
-                  onClick={() => setIsDark(!isDark)}
+                  onClick={handleToggleTheme}
                   className={`p-1.5 rounded-lg ${isDark ? 'bg-theme-primary/10 text-theme-secondary' : 'bg-accent-pink/20 text-accent-pink'} transition-all`}
                   title={isDark ? 'Switch to Light Purple Mode' : 'Switch to Cyber HUD Dark Mode'}
                 >
@@ -693,7 +709,7 @@ export default function App() {
             {activeTab === 'profile' && (
               <UserProfile
                 profile={profile}
-                onSave={setProfile}
+                onSave={handleSaveProfile}
                 isDark={isDark}
               />
             )}
