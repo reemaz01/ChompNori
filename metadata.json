@@ -1,0 +1,6 @@
+{
+  "name": "ChompNori BiteBuddy",
+  "description": "Premium cyber-minimal and warm-light nutrition dashboard featuring calculations, detailed micro/macro-nutrient logging, dynamic charts, risk scanner, recommendations, and local storage.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

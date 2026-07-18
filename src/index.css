@@ -1,0 +1,62 @@
+@import "tailwindcss";
+
+:root {
+  --theme-bg: #F7F8FC;
+  --theme-surface: #FFFFFF;
+  --theme-card: #FFFFFF;
+  --theme-card-hover: #FDE2E8;
+  --theme-primary: #717296;
+  --theme-secondary: #9B9BAE;
+  --theme-accent: #F47C9B;
+  --theme-success: #34C759;
+  --theme-warning: #FFB020;
+  --theme-danger: #FF5A7A;
+  --theme-text: #2E2E38;
+  --theme-text-secondary: #70758A;
+  --theme-border: #E3E3E6;
+}
+
+.dark {
+  --theme-bg: #02060E;
+  --theme-surface: #0B1220;
+  --theme-card: #172D58;
+  --theme-card-hover: #22355E;
+
+  --theme-primary: #2197F1;
+  --theme-secondary: #63D8FF;
+  --theme-accent: #0F6CD9;
+
+  --theme-success: #35E58A;
+  --theme-warning: #FFC857;
+  --theme-danger: #FF5A7A;
+
+  --theme-text: #F4F8FF;
+  --theme-text-secondary: #9FB3C8;
+  --theme-border: #2A3A55;
+}
+
+@theme {
+  --color-primary-purple: #727397;
+  --color-secondary-purple: #8E89A1;
+  --color-light-lavender: #D2C7D1;
+  --color-background-light: #F4F2F4;
+  --color-accent-pink: #F58AA8;
+  --color-light-pink: #F9C9D7;
+  --color-brand-white: #FFFFFF;
+
+  /* Theme variables mapped to Tailwind utility colors */
+  --color-theme-bg: var(--theme-bg);
+  --color-theme-surface: var(--theme-surface);
+  --color-theme-card: var(--theme-card);
+  --color-theme-card-hover: var(--theme-card-hover);
+  --color-theme-primary: var(--theme-primary);
+  --color-theme-secondary: var(--theme-secondary);
+  --color-theme-accent: var(--theme-accent);
+  --color-theme-success: var(--theme-success);
+  --color-theme-warning: var(--theme-warning);
+  --color-theme-danger: var(--theme-danger);
+  --color-theme-text: var(--theme-text);
+  --color-theme-text-secondary: var(--theme-text-secondary);
+  --color-theme-border: var(--theme-border);
+}
+
